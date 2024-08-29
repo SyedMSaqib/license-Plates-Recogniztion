@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 from ultralytics import YOLO
 from easyocr import Reader
 
@@ -10,7 +11,7 @@ model = YOLO(model_path)
 ocr_reader = Reader(['en'])
 
 # Read the image
-image_path = "Images/3.JPG"
+image_path = "Images/2.jpg"
 image = cv2.imread(image_path)
 
 # Run YOLO model to detect objects
@@ -22,16 +23,25 @@ for detection in results[0].boxes:
     x1, y1, x2, y2 = map(int, detection.xyxy[0])
     label = detection.cls[0]
     
-    # Check if the detected object is a license plate
-    if label == 0:  # Assuming 0 is the class index for license plates
+    # Check if the detected object is a license plate (assuming class 0 is license plates)
+    if label == 0:
         # Crop the license plate region
         plate_img = image[y1:y2, x1:x2]
         
-        # Perform OCR on the cropped region
-        ocr_result = ocr_reader.readtext(plate_img)
+        # Convert to grayscale
+        gray = cv2.cvtColor(plate_img, cv2.COLOR_BGR2GRAY)
+        
+        # Apply Gaussian blur to smooth out noise
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Perform adaptive thresholding for better contrast (optional, can be commented out if causing issues)
+        # thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        
+        # Perform OCR directly on the blurred grayscale image
+        ocr_result = ocr_reader.readtext(blurred, detail=0)
         
         # Extract text from OCR results
-        plate_text = ' '.join([text[1] for text in ocr_result])
+        plate_text = ' '.join(ocr_result)
         
         # Draw bounding box on the original image
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
