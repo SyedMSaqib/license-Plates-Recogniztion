@@ -11,7 +11,7 @@ model = YOLO(model_path)
 ocr_reader = Reader(['en'])
 
 # Read the image
-image_path = "Images/2.jpg"
+image_path = "Images/3.JPG"
 image = cv2.imread(image_path)
 
 # Run YOLO model to detect objects
@@ -34,9 +34,6 @@ for detection in results[0].boxes:
         # Apply Gaussian blur to smooth out noise
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         
-        # Perform adaptive thresholding for better contrast (optional, can be commented out if causing issues)
-        # thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-        
         # Perform OCR directly on the blurred grayscale image
         ocr_result = ocr_reader.readtext(blurred, detail=0)
         
@@ -46,14 +43,25 @@ for detection in results[0].boxes:
         # Draw bounding box on the original image
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
         
-        # Set font parameters for larger and bolder text
-        font_scale = 1.5
+        # Set font parameters
+        font_scale = 1
         font_thickness = 3
-        font_color = (0, 255, 0)  # Green color
+        font_color = (255, 255, 255)  # White color for text
+        background_color = (0, 255, 0)  # Green color for background
         font = cv2.FONT_HERSHEY_SIMPLEX
         
-        # Draw text on the original image
-        cv2.putText(image, plate_text, (x1, y1 - 10), font, font_scale, font_color, font_thickness, lineType=cv2.LINE_AA)
+        # Get the text size to create a background rectangle
+        text_size = cv2.getTextSize(plate_text, font, font_scale, font_thickness)[0]
+        text_x = x1
+        text_y = y1 - 10
+        background_top_left = (text_x, text_y - text_size[1] - 10)
+        background_bottom_right = (text_x + text_size[0] + 10, text_y)
+        
+        # Draw the background rectangle
+        cv2.rectangle(image, background_top_left, background_bottom_right, background_color, -1)
+        
+        # Draw the text on top of the background rectangle
+        cv2.putText(image, plate_text, (text_x + 5, text_y - 5), font, font_scale, font_color, font_thickness, lineType=cv2.LINE_AA)
 
 # Save or display the result
 cv2.imwrite('output_image.jpg', image)
