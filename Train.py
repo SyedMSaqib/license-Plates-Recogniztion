@@ -4,6 +4,7 @@ from easyocr import Reader
 from ultralytics import YOLO
 import os
 import uuid
+from collections import defaultdict
 
 # Initialize EasyOCR
 reader = Reader(['en'])
@@ -12,11 +13,12 @@ reader = Reader(['en'])
 model_path = 'license_plate_detector.pt'
 model = YOLO(model_path)
 
-# Define class ID for 'license-plate'
+# Define class IDs
 license_plate_class_id = 0  # This corresponds to 'license-plate'
+vehicle_class_id = 1  # This corresponds to 'vehicle'
 
 # Open the video file
-video_path = 'videos/cars5.mp4'
+video_path = 'videos/cars2.mp4'
 cap = cv2.VideoCapture(video_path)
 
 # Get video properties
@@ -31,6 +33,9 @@ out = cv2.VideoWriter('output_with_easyocr.avi', fourcc, fps, (width, height))
 # Define paths for saving images
 folder_path = './license_plate_images/'
 os.makedirs(folder_path, exist_ok=True)
+
+# Dictionary to store license plates for each vehicle
+vehicle_license_plates = defaultdict(list)
 
 def extract_text_from_image(image):
     """Extract text from an image using EasyOCR and apply post-processing."""
@@ -64,30 +69,35 @@ while cap.isOpened():
     if not ret:
         break
 
-    # Perform inference on the current frame
-    results = model(frame, conf=0.15)  # Lowered confidence threshold
+    # Perform inference and tracking on the current frame
+    results = model.track(frame, conf=0.15, persist=True)  # Track mode enabled
 
-    # Process the results
+    # Extract bounding boxes, class IDs, and tracking IDs
     for result in results:
-        boxes = result.boxes.xyxy.cpu().numpy()
-        classes = result.boxes.cls.cpu().numpy()
+        if result.boxes.id is not None:  # Check if tracking IDs are available
+            for box, cls, track_id in zip(result.boxes.xyxy.cpu().numpy(), result.boxes.cls.cpu().numpy(), result.boxes.id.cpu().numpy()):
+                if int(cls) == license_plate_class_id:
+                    x1, y1, x2, y2 = map(int, box)
+                    roi = frame[y1:y2, x1:x2]  # Region of interest (license plate)
 
-        for i, (box, cls) in enumerate(zip(boxes, classes)):
-            if int(cls) == license_plate_class_id:
-                x1, y1, x2, y2 = map(int, box)
-                roi = frame[y1:y2, x1:x2]  # Region of interest (license plate)
+                    # Extract license plate text using EasyOCR
+                    plate_text = extract_text_from_image(roi)
 
-                # Extract text from the license plate using EasyOCR
-                plate_text = extract_text_from_image(roi)
+                    # Save cropped license plate image
+                    if plate_text:
+                        img_name = f'{uuid.uuid1()}.jpg'
+                        # cv2.imwrite(os.path.join(folder_path, img_name), roi)
 
-                # Save cropped license plate image
-                img_name = f'{uuid.uuid1()}.jpg'
-                cv2.imwrite(os.path.join(folder_path, img_name), roi)
-
-                # Draw bounding box and text on the frame
-                if plate_text:
+                    # Draw bounding box and text on the frame
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    draw_text_with_background(frame, plate_text, (x1, y1 - 10))
+                    if plate_text:
+                        draw_text_with_background(frame, plate_text, (x1, y1 - 10))
+
+                    # Store the license plate text for the current vehicle
+                    vehicle_license_plates[track_id].append(plate_text)
+        else:
+            # Handle the case where tracking ID is not available
+            print("Tracking ID is not available for this frame.")
 
     # Resize the frame
     resized_frame = cv2.resize(frame, (int(width * scale_factor), int(height * scale_factor)))
@@ -100,8 +110,15 @@ while cap.isOpened():
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+# Print the results
+print("Video processing complete. Output saved to 'output_with_easyocr.avi'")
+print("Detected cars and their license plates:")
+for car_id, plates in vehicle_license_plates.items():
+    # Aggregate OCR results for each vehicle
+    most_common_plate = max(set(plates), key=plates.count)
+    print(f"Car {car_id}: {most_common_plate}")
+
 # Release everything if job is finished
 cap.release()
 out.release()
 cv2.destroyAllWindows()
-print("Video processing complete. Output saved to 'output_with_easyocr.avi'")
