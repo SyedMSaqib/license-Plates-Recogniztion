@@ -16,7 +16,7 @@ model = YOLO(model_path)
 license_plate_class_id = 0  # This corresponds to 'license-plate'
 
 # Open the video file
-video_path = 'videos/cars2.mp4'
+video_path = 'videos/cars5.mp4'
 cap = cv2.VideoCapture(video_path)
 
 # Get video properties
