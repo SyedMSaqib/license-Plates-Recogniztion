@@ -4,7 +4,7 @@ from easyocr import Reader
 from ultralytics import YOLO
 import os
 import uuid
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 # Initialize EasyOCR
 reader = Reader(['en'])
@@ -15,7 +15,6 @@ model = YOLO(model_path)
 
 # Define class IDs
 license_plate_class_id = 0  # This corresponds to 'license-plate'
-vehicle_class_id = 1  # This corresponds to 'vehicle'
 
 # Open the video file
 video_path = 'videos/cars2.mp4'
@@ -35,7 +34,7 @@ folder_path = './license_plate_images/'
 os.makedirs(folder_path, exist_ok=True)
 
 # Dictionary to store license plates for each vehicle
-vehicle_license_plates = defaultdict(list)
+vehicle_license_plates = defaultdict(Counter)  # Use Counter for easy aggregation
 
 def extract_text_from_image(image):
     """Extract text from an image using EasyOCR and apply post-processing."""
@@ -88,13 +87,19 @@ while cap.isOpened():
                         img_name = f'{uuid.uuid1()}.jpg'
                         # cv2.imwrite(os.path.join(folder_path, img_name), roi)
 
+                    # Update vehicle_license_plates with detected plate text
+                    if plate_text:
+                        vehicle_license_plates[track_id][plate_text] += 1
+
                     # Draw bounding box and text on the frame
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     if plate_text:
-                        draw_text_with_background(frame, plate_text, (x1, y1 - 10))
-
-                    # Store the license plate text for the current vehicle
-                    vehicle_license_plates[track_id].append(plate_text)
+                        # Aggregate results for the current frame
+                        most_common_plate = vehicle_license_plates[track_id].most_common(1)
+                        if most_common_plate:
+                            display_text = most_common_plate[0][0]
+                            draw_text_with_background(frame, display_text, (x1, y1 - 10))
+                    
         else:
             # Handle the case where tracking ID is not available
             print("Tracking ID is not available for this frame.")
@@ -110,13 +115,14 @@ while cap.isOpened():
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# Print the results
+# Print the final results
 print("Video processing complete. Output saved to 'output_with_easyocr.avi'")
 print("Detected cars and their license plates:")
 for car_id, plates in vehicle_license_plates.items():
     # Aggregate OCR results for each vehicle
-    most_common_plate = max(set(plates), key=plates.count)
-    print(f"Car {car_id}: {most_common_plate}")
+    most_common_plate = plates.most_common(1)
+    if most_common_plate:
+        print(f"Car {car_id}: {most_common_plate[0][0]}")
 
 # Release everything if job is finished
 cap.release()
