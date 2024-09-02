@@ -3,6 +3,7 @@ import numpy as np
 from easyocr import Reader
 from ultralytics import YOLO
 from collections import defaultdict, Counter
+import re
 
 # Initialize EasyOCR
 reader = Reader(['en'])
@@ -25,7 +26,7 @@ height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 # Define the codec and create a VideoWriter object
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('traffic_analysis_output.avi', fourcc, fps, (width, height))
+out = cv2.VideoWriter('traffic_analysis_output2.avi', fourcc, fps, (width, height))
 
 # Dictionary to store license plates for each vehicle
 vehicle_license_plates = defaultdict(Counter)
@@ -50,13 +51,14 @@ def extract_text_from_image(image):
     return ""
 
 def clean_plate_text(plate_text):
-    """Clean and correct the license plate text."""
+    """Clean and correct the license plate text to include only 0-9 and A-Z."""
     if plate_text:
         plate_text = plate_text[1:].strip()
         if plate_text and plate_text[-1] in ['5', 'S']:
             plate_text = plate_text[:-1] + 'S'
-        plate_text = ''.join(plate_text.split())
-        return plate_text
+        plate_text = ''.join(plate_text.split()) 
+        plate_text = plate_text.upper()  # Ensure uppercase letters
+        plate_text = re.sub(r'[^A-Z0-9]', '', plate_text)  # Remove any non-alphanumeric characters
     return plate_text
 
 def draw_text_with_background(image, text, position, font_scale=0.9, font_thickness=2, color=(0, 255, 0)):
@@ -122,10 +124,21 @@ while cap.isOpened():
         break
 
 # Print final statistics
+# Print final statistics
 print("\nFinal Statistics:")
 print(f"Total Vehicles Passed: {len(unique_vehicles)}")
+
+# Print each vehicle's license plate
+for vehicle_id in unique_vehicles:
+    most_common_plate = vehicle_license_plates[vehicle_id].most_common(1)
+    if most_common_plate:
+        plate_text = most_common_plate[0][0]
+        print(f"Vehicle {vehicle_id}: {plate_text}")
+    else:
+        print(f"Vehicle {vehicle_id}: No plate detected")
 
 # Release everything
 cap.release()
 out.release()
 cv2.destroyAllWindows()
+
