@@ -25,8 +25,8 @@ width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 # Define the codec and create a VideoWriter object
-fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('traffic_analysis_output2.avi', fourcc, fps, (width, height))
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Use 'mp4v' for .mp4 format
+out = cv2.VideoWriter('traffic_analysis_output2.mp4', fourcc, fps, (width, height))
 
 # Dictionary to store license plates for each vehicle
 vehicle_license_plates = defaultdict(Counter)
@@ -124,7 +124,6 @@ while cap.isOpened():
         break
 
 # Print final statistics
-# Print final statistics
 print("\nFinal Statistics:")
 print(f"Total Vehicles Passed: {len(unique_vehicles)}")
 
@@ -141,4 +140,3 @@ for vehicle_id in unique_vehicles:
 cap.release()
 out.release()
 cv2.destroyAllWindows()
-
