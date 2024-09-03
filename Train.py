@@ -33,7 +33,7 @@ out = cv2.VideoWriter('traffic_analysis_output2.mp4', fourcc, fps, (width, heigh
 
 # CSV file setup
 csv_file = 'vehicle_crossings.csv'
-csv_columns = ['Vehicle ID', 'License Plate', 'Time']
+csv_columns = ['Vehicle ID', 'License Plate', 'Time (UTC)']
 
 with open(csv_file, 'w', newline='') as csvfile:
     writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
@@ -90,9 +90,9 @@ while cap.isOpened():
         break
 
     frame_count += 1
-    # Calculate the current time in the video
-    time_in_seconds = frame_count / fps
-    time_hms = str(datetime.timedelta(seconds=int(time_in_seconds)))
+
+    # Get current UTC time
+    utc_time = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
     # Perform inference and tracking on the current frame
     results = model.track(frame, conf=0.15, persist=True)
@@ -122,13 +122,13 @@ while cap.isOpened():
                             vehicle_id = vehicle_id_counter
                             vehicle_id_counter += 1
 
-                            # Record the vehicle's license plate and crossing time in the CSV
+                            # Record the vehicle's license plate and crossing time (UTC) in the CSV
                             with open(csv_file, 'a', newline='') as csvfile:
                                 writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
                                 writer.writerow({
                                     'Vehicle ID': vehicle_id,
                                     'License Plate': plate_text,
-                                    'Time': time_hms
+                                    'Time (UTC)': utc_time
                                 })
 
                         vehicle_license_plates[track_id][plate_text] += 1
